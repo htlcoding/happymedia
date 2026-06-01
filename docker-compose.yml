@@ -1,0 +1,81 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: happymedia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: happypedia
+      POSTGRES_USER: happymedia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - happymedia-net
+
+  api:
+    build:
+      context: ./backend/HappyPedia.Api/HappyPedia.Api
+      dockerfile: Dockerfile
+    container_name: happymedia-api
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=happypedia;Username=happymedia;Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+
+      Jwt__Key: ${JWT_KEY:?JWT_KEY fehlt}
+      Jwt__Issuer: HappyPedia.Api
+      Jwt__Audience: HappyPedia.Frontend
+      Jwt__ExpireMinutes: 120
+
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      OpenAI__Model: gpt-4.1-mini
+
+      Email__Host: ${EMAIL_HOST:-}
+      Email__Port: ${EMAIL_PORT:-587}
+      Email__Username: ${EMAIL_USERNAME:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__FromEmail: ${EMAIL_FROM:-}
+      Email__FromName: HappyMedia
+      Email__FrontendBaseUrl: https://happymedia.at
+    networks:
+      - happymedia-net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: happymedia-web
+    restart: unless-stopped
+    networks:
+      - happymedia-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: happymedia-caddy
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - happymedia-net
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  happymedia-net:
