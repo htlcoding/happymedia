@@ -1,20 +1,25 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://localhost:7045/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
 });
 
-api.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("happypedia-token") ||
-    localStorage.getItem("happymedia-token");
+api.interceptors.request.use(
+  (config) => {
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("happypedia-token") ||
+      localStorage.getItem("happymedia-token");
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-
-  return config;
-});
+);
 
 export default api;
